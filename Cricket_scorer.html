@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<title>Cricket Scorer</title>
+
+<style>
+
+body{
+font-family:Arial;
+background:#0f172a;
+color:white;
+text-align:center;
+}
+
+button{
+padding:10px;
+margin:5px;
+font-size:16px;
+}
+
+input{
+padding:6px;
+margin:5px;
+}
+
+.ball{
+display:inline-block;
+background:#1e293b;
+padding:6px;
+margin:2px;
+border-radius:4px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<h1>🏏 Cricket Score Counter</h1>
+
+<div id="setup">
+
+<h2>Match Setup</h2>
+
+Team A<br>
+<input id="teamA"><br><br>
+
+Team B<br>
+<input id="teamB"><br><br>
+
+Max Overs<br>
+<input id="maxOvers" type="number" value="20"><br><br>
+
+Max Wickets<br>
+<input id="maxWickets" type="number" value="10"><br><br>
+
+Toss Winner<br>
+
+<select id="tossWinner">
+<option value="A">Team A</option>
+<option value="B">Team B</option>
+</select>
+
+<br><br>
+
+Toss Decision
+
+<select id="tossDecision">
+<option value="bat">Bat</option>
+<option value="bowl">Bowl</option>
+</select>
+
+<br><br>
+
+<button onclick="startMatch()">START MATCH</button>
+
+</div>
+
+<div id="match" style="display:none">
+
+<h2 id="teams"></h2>
+
+<h3 id="batting"></h3>
+
+<h2 id="score">Score: 0 / 0</h2>
+
+<h3 id="overs">Overs: 0.0</h3>
+
+<h3 id="runrate">Run Rate: 0</h3>
+
+<h3 id="target">Target: -</h3>
+
+<h3 id="reqrr">Required RR: -</h3>
+
+<hr>
+
+<h3>Runs</h3>
+
+<button onclick="addRun(1)">+1</button>
+<button onclick="addRun(2)">+2</button>
+<button onclick="addRun(3)">+3</button>
+<button onclick="addRun(4)">+4</button>
+<button onclick="addRun(6)">+6</button>
+<button onclick="dotball(0)">●</button>
+<button onclick="wicket('W')">W</button>
+<button onclick="extra('Wd')">Wd</button>
+<button onclick="extra('Nb')">Nb</button>
+
+<br><br>
+
+<button onclick="undo()">UNDO</button>
+
+<button onclick="resetMatch()">RESET</button>
+
+<h3>Ball Timeline</h3>
+
+<div id="timeline"></div>
+
+</div>
+
+<script>
+
+let freehit=false;
+
+let teamA=""
+let teamB=""
+
+let battingTeam=""
+let bowlingTeam=""
+
+let runs=0
+let wickets=0
+let balls=0
+
+let firstScore=0
+let secondInnings=false
+
+let timeline=[]
+let freeHitHistory=[]
+
+function startMatch(){
+
+teamA=document.getElementById("teamA").value
+teamB=document.getElementById("teamB").value
+
+let toss=document.getElementById("tossWinner").value
+let decision=document.getElementById("tossDecision").value
+
+if(toss=="A"){
+if(decision=="bat"){
+battingTeam=teamA
+bowlingTeam=teamB
+}else{
+battingTeam=teamB
+bowlingTeam=teamA
+}
+}
+
+if(toss=="B"){
+if(decision=="bat"){
+battingTeam=teamB
+bowlingTeam=teamA
+}else{
+battingTeam=teamA
+bowlingTeam=teamB
+}
+}
+
+document.getElementById("teams").innerText=
+teamA+" vs "+teamB
+
+document.getElementById("batting").innerText=
+battingTeam+" batting"
+
+document.getElementById("setup").style.display="none"
+document.getElementById("match").style.display="block"
+
+}
+
+function maxOvers(){
+return parseInt(document.getElementById("maxOvers").value)
+}
+
+function maxWickets(){
+return parseInt(document.getElementById("maxWickets").value)
+}
+
+function addRun(r){
+
+freeHitHistory.push(freehit)
+
+runs+=r
+balls++
+
+if(freehit) freehit=false
+
+timeline.push(r)
+
+checkLimits()
+checkWin()
+
+update()
+
+}
+
+function dotball(){
+
+freeHitHistory.push(freehit)
+
+balls++
+
+if(freehit) freehit=false
+
+timeline.push("0")
+
+checkLimits()
+
+update()
+
+}
+
+function wicket(){
+
+freeHitHistory.push(freehit)
+
+if(freehit){
+
+timeline.push("FH")
+
+freehit=false
+
+balls++
+
+update()
+
+return
+}
+
+wickets++
+balls++
+
+timeline.push("W")
+
+checkLimits()
+update()
+
+}
+
+function extra(type){
+
+freeHitHistory.push(freehit)
+
+runs++
+
+if(type=="Nb"){
+freehit=true
+}
+
+timeline.push(type)
+
+update()
+
+}
+
+function undo(){
+
+let last=timeline.pop()
+
+if(!last)return
+
+freehit=freeHitHistory.pop()
+
+if(last=="W") wickets--
+
+else if(last=="Wd"||last=="Nb") runs--
+
+else if(last=="FH") balls--
+
+else{
+runs-=last
+balls--
+}
+
+update()
+
+}
+
+function overs(){
+
+let o=Math.floor(balls/6)
+let b=balls%6
+
+return o+"."+b
+
+}
+
+function runRate(){
+
+let o=balls/6
+if(o==0)return 0
+
+return (runs/o).toFixed(2)
+
+}
+
+function requiredRR(){
+
+if(!secondInnings)return "-"
+
+let target=firstScore+1
+let runsNeeded=target-runs
+
+let oversRemaining=maxOvers()-(balls/6)
+
+if(oversRemaining<=0)return "0"
+
+return (runsNeeded/oversRemaining).toFixed(2)
+
+}
+
+function checkLimits(){
+
+let oversBowled=Math.floor(balls/6)
+
+if(oversBowled>=maxOvers() || wickets>=maxWickets()){
+
+changeInnings()
+
+}
+
+}
+
+function checkWin(){
+
+if(secondInnings){
+
+if(runs>firstScore){
+
+alert(battingTeam+" WON")
+
+resetMatch()
+
+}
+
+}
+
+}
+
+function changeInnings(){
+
+if(!secondInnings){
+
+firstScore=runs
+
+document.getElementById("target").innerText=
+"Target: "+(firstScore+1)
+
+let temp=battingTeam
+battingTeam=bowlingTeam
+bowlingTeam=temp
+
+document.getElementById("batting").innerText=
+battingTeam+" chasing"
+
+runs=0
+wickets=0
+balls=0
+timeline=[]
+
+secondInnings=true
+
+update()
+
+}else{
+
+let result=""
+
+if(runs>firstScore)
+result=battingTeam+" WON"
+
+else if(runs<firstScore)
+result=bowlingTeam+" WON"
+
+else
+result="MATCH TIED"
+
+alert(result)
+
+resetMatch()
+
+}
+
+}
+
+function update(){
+
+document.getElementById("score").innerText=
+"Score: "+runs+" / "+wickets
+
+document.getElementById("overs").innerText=
+"Overs: "+overs()
+
+document.getElementById("runrate").innerText=
+"Run Rate: "+runRate()
+
+document.getElementById("reqrr").innerText=
+"Required RR: "+requiredRR()
+
+let html=""
+
+timeline.forEach(b=>{
+html+="<span class='ball'>"+b+"</span>"
+})
+
+document.getElementById("timeline").innerHTML=html
+
+let fh=document.getElementById("freehit")
+if(fh){
+fh.innerText="Free Hit: "+(freehit?"ON":"OFF")
+}
+
+}
+
+function resetMatch(){
+
+runs=0
+wickets=0
+balls=0
+timeline=[]
+freeHitHistory=[]
+freehit=false
+
+update()
+
+}
+
+update()
+
+</script>
+
+</body>
+</html>
